@@ -109,6 +109,18 @@ export default function CallerPage() {
       return;
     }
 
+    // Replace placeholders with actual values before sending
+    let resolvedMessage = messageTemplate;
+    if (callType === "payment") {
+      resolvedMessage = resolvedMessage
+        .replace(/\[AMOUNT\]/g, amount || "[AMOUNT]")
+        .replace(/\[DEADLINE\]/g, deadline || "[DEADLINE]")
+        .replace(/\[LINK\]/g, paymentLink || "[LINK]");
+    } else {
+      resolvedMessage = resolvedMessage
+        .replace(/\[DATE\]/g, courtDate || "[DATE]");
+    }
+
     setSending(true);
     setToast(null);
     setResult(null);
@@ -120,7 +132,7 @@ export default function CallerPage() {
         body: JSON.stringify({
           contactId,
           callType,
-          messageTemplate,
+          messageTemplate: resolvedMessage,
           paymentLink: callType === "payment" ? paymentLink : undefined,
           amount: callType === "payment" ? amount : undefined,
           deadline: callType === "payment" ? deadline : undefined,
@@ -270,6 +282,27 @@ export default function CallerPage() {
               className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none"
             />
           </div>
+
+          {/* Live message preview */}
+          {(() => {
+            let preview = messageTemplate;
+            if (callType === "payment") {
+              preview = preview
+                .replace(/\[AMOUNT\]/g, amount || "[AMOUNT]")
+                .replace(/\[DEADLINE\]/g, deadline || "[DEADLINE]")
+                .replace(/\[LINK\]/g, paymentLink || "[LINK]");
+            } else {
+              preview = preview.replace(/\[DATE\]/g, courtDate || "[DATE]");
+            }
+            const hasPlaceholders = /\[AMOUNT\]|\[DEADLINE\]|\[LINK\]|\[DATE\]/.test(preview);
+            return (
+              <div className={`p-3 rounded-lg border text-sm ${hasPlaceholders ? "bg-yellow-900/20 border-yellow-700 text-yellow-300" : "bg-gray-800/50 border-gray-700 text-gray-300"}`}>
+                <p className="text-xs font-medium mb-1 text-gray-400">SMS Preview:</p>
+                <p>{preview}</p>
+                {hasPlaceholders && <p className="text-xs mt-1 text-yellow-400">⚠ Fill in the fields below to complete the message</p>}
+              </div>
+            );
+          })()}
 
           {/* Conditional Inputs */}
           {callType === "payment" && (
