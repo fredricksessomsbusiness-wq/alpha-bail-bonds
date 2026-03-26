@@ -86,6 +86,10 @@ export async function DELETE(
       );
     }
 
+    // Delete related records first to avoid FK constraint errors
+    await prisma.batchCallQueue.deleteMany({ where: { contactId: id } });
+    await prisma.textMessage.deleteMany({ where: { contactId: id } });
+    await prisma.call.deleteMany({ where: { contactId: id } });
     await prisma.contact.delete({ where: { id } });
 
     return NextResponse.json({ success: true, data: { deleted: true } });
