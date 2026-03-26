@@ -50,6 +50,12 @@ export default function BatchCallerPage() {
   // Scheduling
   const [startTime, setStartTime] = useState("");
 
+  // Call window
+  const [callWindowStart, setCallWindowStart] = useState("10:00");
+  const [callWindowEnd, setCallWindowEnd] = useState("18:00");
+  const [allowSaturday, setAllowSaturday] = useState(false);
+  const [allowSunday, setAllowSunday] = useState(false);
+
   // Submission
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -139,6 +145,10 @@ export default function BatchCallerPage() {
           deadline: callType === "payment" ? deadline : undefined,
           courtDate: callType === "court" ? courtDate : undefined,
           startTime: startTime || undefined,
+          callWindowStart,
+          callWindowEnd,
+          allowSaturday,
+          allowSunday,
         }),
       });
 
@@ -414,6 +424,59 @@ export default function BatchCallerPage() {
               onChange={(e) => setStartTime(e.target.value)}
               className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
+          </div>
+
+          {/* Call Window */}
+          <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4 space-y-4">
+            <div>
+              <p className="text-sm font-medium text-gray-300 mb-1">Call Window (Eastern Time)</p>
+              <p className="text-xs text-gray-500 mb-3">Calls outside this window will automatically roll to the next valid day.</p>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-400 mb-1">Open</label>
+                  <input
+                    type="time"
+                    value={callWindowStart}
+                    onChange={(e) => setCallWindowStart(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+                  />
+                </div>
+                <span className="text-gray-500 mt-5">to</span>
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-400 mb-1">Close</label>
+                  <input
+                    type="time"
+                    value={callWindowEnd}
+                    onChange={(e) => setCallWindowEnd(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-400 mb-2">Allow calls on weekends?</p>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allowSaturday}
+                    onChange={(e) => setAllowSaturday(e.target.checked)}
+                    className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-600"
+                  />
+                  <span className="text-sm text-gray-300">Saturday</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allowSunday}
+                    onChange={(e) => setAllowSunday(e.target.checked)}
+                    className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-600"
+                  />
+                  <span className="text-sm text-gray-300">Sunday</span>
+                </label>
+              </div>
+            </div>
           </div>
 
           {/* Launch Button */}

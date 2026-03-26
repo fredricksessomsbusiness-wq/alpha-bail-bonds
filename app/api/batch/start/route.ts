@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendSMS } from "@/lib/vonage";
-import { validateCallTime, getNextValidCallTime } from "@/lib/call-protection";
+import { validateCallTime, getNextValidCallTime, DEFAULT_CALL_WINDOW, type CallWindowConfig } from "@/lib/call-protection";
 
 function resolveTemplate(template: string, contact: { nextPaymentAmount?: string | null; courtDate?: Date | null }, globals: { amount?: string; deadline?: string; courtDate?: string; paymentLink?: string }): string {
   const amount = contact.nextPaymentAmount || globals.amount || '[AMOUNT]';
@@ -38,6 +38,10 @@ export async function POST(request: Request) {
       deadline,
       courtDate,
       startTime,
+      callWindowStart,
+      callWindowEnd,
+      allowSaturday,
+      allowSunday,
     } = await request.json();
 
     if (
@@ -112,17 +116,37 @@ export async function POST(request: Request) {
       }
     }
 
-    // Create BatchCallQueue entries scheduled 30 min apart starting at startTime
-    let currentTime = new Date(startTime);
+    // Build call window config from form values (fallback to defaults)
+    const parseTime = (val: string | undefined, defaultHour: number, defaultMin: number) => {
+      if (!val) return { hour: defaultHour, minute: defaultMin };
+      const [h, m] = val.split(":").map(Number);
+      return { hour: isNaN(h) ? defaultHour : h, minute: isNaN(m) ? defaultMin : m };
+    };
+    const windowStart = parseTime(callWindowStart, DEFAULT_CALL_WINDOW.startHour, DEFAULT_CALL_WINDOW.startMinute);
+    const windowEnd = parseTime(callWindowEnd, DEFAULT_CALL_WINDOW.endHour, DEFAULT_CALL_WINDOW.endMinute);
+
+    const callWindow: CallWindowConfig = {
+      startHour: windowStart.hour,
+      startMinute: windowStart.minute,
+      endHour: windowEnd.hour,
+      endMinute: windowEnd.minute,
+      allowSaturday: !!allowSaturday,
+      allowSunday: !!allowSunday,
+    };
+
+    // Minutes available per day in the window
+    const windowMinutes =
+      (callWindow.endHour * 60 + callWindow.endMinute) -
+      (callWindow.startHour * 60 + callWindow.startMinute);
+
+    // Space calls so they fit comfortably — at least 30 min, but scale up if window is tight
+    const BUFFER_MINUTES = Math.max(30, Math.ceil(windowMinutes / Math.max(contacts.length, 1)));
+
+    // Create BatchCallQueue entries spaced BUFFER_MINUTES apart, rolling to next valid day as needed
+    let currentTime = getNextValidCallTime(new Date(startTime), callWindow);
 
     for (let i = 0; i < contacts.length; i++) {
       const contact = contacts[i];
-
-      // Validate and adjust call time
-      const validation = validateCallTime(currentTime);
-      if (!validation.valid) {
-        currentTime = getNextValidCallTime(currentTime);
-      }
 
       await prisma.batchCallQueue.create({
         data: {
@@ -133,8 +157,9 @@ export async function POST(request: Request) {
         },
       });
 
-      // Next call 30 minutes later
-      currentTime = new Date(currentTime.getTime() + 30 * 60 * 1000);
+      // Advance to next slot, then validate/roll forward into the window
+      const next = new Date(currentTime.getTime() + BUFFER_MINUTES * 60 * 1000);
+      currentTime = getNextValidCallTime(next, callWindow);
     }
 
     return NextResponse.json({
