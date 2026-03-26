@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { normalizePhone } from "@/lib/phone";
 
 export async function PUT(
   request: Request,
@@ -39,7 +40,7 @@ export async function PUT(
       where: { id },
       data: {
         ...(name !== undefined && { name }),
-        ...(phone !== undefined && { phone }),
+        ...(phone !== undefined && { phone: normalizePhone(phone) }),
         ...(defendantName !== undefined && { defendantName }),
         ...(status !== undefined && { status }),
       },

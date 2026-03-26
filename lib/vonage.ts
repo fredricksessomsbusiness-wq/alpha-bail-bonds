@@ -1,3 +1,10 @@
+function normalizeToE164(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) return `1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return digits;
+  return digits;
+}
+
 export async function sendSMS(
   to: string,
   message: string
@@ -18,7 +25,7 @@ export async function sendSMS(
         api_key: apiKey,
         api_secret: apiSecret,
         from,
-        to: to.replace(/\D/g, ""),
+        to: normalizeToE164(to),
         text: message,
       }),
     });
