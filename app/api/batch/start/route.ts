@@ -19,8 +19,12 @@ export async function POST(request: Request) {
     const {
       contactIds,
       callType,
+      assistantType,
       messageTemplate,
       paymentLink,
+      amount,
+      deadline,
+      courtDate,
       startTime,
     } = await request.json();
 
@@ -56,12 +60,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // Store assistantType alongside callType (e.g. "payment:payment" or "court:court" or "payment:court")
+    // Format: "{callType}:{assistantType}" — batch processor splits this to know which assistant to use
+    const resolvedAssistantType = assistantType || callType;
+    const batchCallType = `${callType}:${resolvedAssistantType}`;
+
     // Create batch campaign
     const batch = await prisma.batchCampaign.create({
       data: {
         agentId: userId,
         name: `${callType === "payment" ? "Payment" : "Court"} Batch - ${new Date().toLocaleDateString()}`,
-        callType,
+        callType: batchCallType,
         messageTemplate,
         paymentLink: paymentLink || null,
         startTime: new Date(startTime),

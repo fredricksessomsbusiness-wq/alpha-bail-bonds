@@ -19,6 +19,11 @@ const COURT_TEMPLATE =
 
 const MAX_BATCH = 40;
 
+const ASSISTANT_OPTIONS = [
+  { value: "payment", label: "💳 Payment Reminder Assistant" },
+  { value: "court", label: "⚖️ Court Date Reminder Assistant" },
+];
+
 export default function BatchCallerPage() {
   const router = useRouter();
 
@@ -30,6 +35,7 @@ export default function BatchCallerPage() {
   // Call config
   const [callType, setCallType] = useState<CallType>("payment");
   const [messageTemplate, setMessageTemplate] = useState(PAYMENT_TEMPLATE);
+  const [selectedAssistant, setSelectedAssistant] = useState<CallType>("payment");
 
   // Payment fields
   const [amount, setAmount] = useState("");
@@ -117,13 +123,25 @@ export default function BatchCallerPage() {
     setError("");
 
     try {
+      // Resolve message with placeholders filled in
+      let resolvedMessage = messageTemplate;
+      if (callType === "payment") {
+        resolvedMessage = resolvedMessage
+          .replace(/\[AMOUNT\]/g, amount || "[AMOUNT]")
+          .replace(/\[DEADLINE\]/g, deadline || "[DEADLINE]")
+          .replace(/\[LINK\]/g, paymentLink || "[LINK]");
+      } else {
+        resolvedMessage = resolvedMessage.replace(/\[DATE\]/g, courtDate || "[DATE]");
+      }
+
       const res = await fetch("/api/batch/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contactIds: Array.from(selectedIds),
           callType,
-          messageTemplate,
+          assistantType: selectedAssistant,
+          messageTemplate: resolvedMessage,
           paymentLink: callType === "payment" ? paymentLink : undefined,
           amount: callType === "payment" ? amount : undefined,
           deadline: callType === "payment" ? deadline : undefined,
@@ -258,10 +276,34 @@ export default function BatchCallerPage() {
             </div>
           </div>
 
+          {/* AI Assistant Selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              AI Voice Assistant
+            </label>
+            <p className="text-xs text-gray-500 mb-3">Choose which pre-built Vapi assistant makes the calls for this batch.</p>
+            <div className="flex gap-3">
+              {ASSISTANT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSelectedAssistant(opt.value as CallType)}
+                  className={`flex-1 px-4 py-3 rounded-lg text-sm font-medium transition-colors border ${
+                    selectedAssistant === opt.value
+                      ? "bg-blue-600 border-blue-500 text-white"
+                      : "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Message Template */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Message Template
+              SMS Message Template
             </label>
             <textarea
               rows={4}

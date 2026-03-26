@@ -32,11 +32,21 @@ export async function processBatchQueue(): Promise<{ processed: number; errors: 
           data: { status: "calling" },
         });
 
+        // Parse callType field — may be "payment:court" format (callType:assistantType)
+        const [rawCallType, rawAssistantType] = item.batch.callType.split(":");
+        const callType = (rawCallType || "payment") as "payment" | "court";
+        const assistantType = (rawAssistantType || rawCallType || "payment") as "payment" | "court";
+
+        const assistantId =
+          assistantType === "payment"
+            ? process.env.VAPI_PAYMENT_ASSISTANT_ID
+            : process.env.VAPI_COURT_ASSISTANT_ID;
+
         const call = await prisma.call.create({
           data: {
             contactId: item.contactId,
             agentId: item.batch.agentId,
-            callType: item.batch.callType,
+            callType,
             scheduledAt: item.scheduledAt,
             status: "in_progress",
           },
@@ -46,7 +56,8 @@ export async function processBatchQueue(): Promise<{ processed: number; errors: 
           phoneNumber: item.contact.phone,
           contactName: item.contact.name,
           defendantName: item.contact.defendantName,
-          callType: item.batch.callType as "payment" | "court",
+          callType,
+          assistantId,
         });
 
         if (result.success && result.callId) {
