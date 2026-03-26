@@ -35,8 +35,14 @@ export async function scheduleVapiCall(
       };
     }
 
-    // Normalize phone to E.164 digits only (no +)
-    const toNumber = params.phoneNumber.replace(/\D/g, "");
+    // Normalize phone to E.164 format with + prefix (required by Vapi)
+    const digits = params.phoneNumber.replace(/\D/g, "");
+    const toNumber =
+      digits.length === 10
+        ? `+1${digits}`
+        : digits.length === 11 && digits.startsWith("1")
+        ? `+${digits}`
+        : `+${digits}`;
 
     // Variable values injected into the assistant's system prompt
     // In your Vapi assistant, reference these as {{contactName}}, {{amount}}, etc.
