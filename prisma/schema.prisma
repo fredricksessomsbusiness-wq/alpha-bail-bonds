@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id             String          @id @default(cuid())
+  name           String
+  email          String          @unique
+  passwordHash   String
+  phone          String          @default("")
+  createdAt      DateTime        @default(now())
+  contacts       Contact[]
+  calls          Call[]
+  textMessages   TextMessage[]
+  batchCampaigns BatchCampaign[]
+}
+
+model Contact {
+  id              String           @id @default(cuid())
+  agentId         String
+  agent           Agent            @relation(fields: [agentId], references: [id])
+  name            String
+  phone           String
+  defendantName   String           @default("")
+  status          String           @default("active")
+  lastOutcome     String?
+  lastSentiment   String?
+  lastContactedAt DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  calls           Call[]
+  textMessages    TextMessage[]
+  batchCallQueues BatchCallQueue[]
+}
+
+model Call {
+  id           String   @id @default(cuid())
+  contactId    String
+  contact      Contact  @relation(fields: [contactId], references: [id])
+  agentId      String
+  agent        Agent    @relation(fields: [agentId], references: [id])
+  callType     String
+  scheduledAt  DateTime
+  status       String   @default("scheduled")
+  outcome      String?
+  sentiment    String?
+  transcript   String?
+  summary      String?
+  recordingUrl String?
+  duration     Int?
+  vapiCallId   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model TextMessage {
+  id              String   @id @default(cuid())
+  contactId       String
+  contact         Contact  @relation(fields: [contactId], references: [id])
+  agentId         String
+  agent           Agent    @relation(fields: [agentId], references: [id])
+  direction       String
+  body            String
+  sentAt          DateTime @default(now())
+  vonageMessageId String?
+  status          String   @default("sent")
+}
+
+model BatchCampaign {
+  id              String           @id @default(cuid())
+  agentId         String
+  agent           Agent            @relation(fields: [agentId], references: [id])
+  name            String           @default("Batch Campaign")
+  callType        String
+  messageTemplate String
+  paymentLink     String?
+  startTime       DateTime
+  status          String           @default("pending")
+  totalCalls      Int              @default(0)
+  completedCalls  Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  queue           BatchCallQueue[]
+}
+
+model BatchCallQueue {
+  id          String        @id @default(cuid())
+  batchId     String
+  batch       BatchCampaign @relation(fields: [batchId], references: [id])
+  contactId   String
+  contact     Contact       @relation(fields: [contactId], references: [id])
+  scheduledAt DateTime
+  status      String        @default("pending")
+  callId      String?
+  attempt     Int           @default(1)
+  createdAt   DateTime      @default(now())
+}

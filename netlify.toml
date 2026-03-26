@@ -1,0 +1,16 @@
+[build]
+  command = "npx prisma generate && npx prisma db push --accept-data-loss && next build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[functions]
+  directory = "netlify/functions"
+
+# Scheduled batch processor — runs every 2 minutes
+[functions."batch-processor"]
+  schedule = "*/2 * * * *"
