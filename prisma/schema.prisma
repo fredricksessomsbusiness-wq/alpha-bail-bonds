@@ -8,16 +8,18 @@ datasource db {
 }
 
 model Agent {
-  id             String          @id @default(cuid())
-  name           String
-  email          String          @unique
-  passwordHash   String
-  phone          String          @default("")
-  createdAt      DateTime        @default(now())
-  contacts       Contact[]
-  calls          Call[]
-  textMessages   TextMessage[]
-  batchCampaigns BatchCampaign[]
+  id                String          @id @default(cuid())
+  name              String
+  email             String          @unique
+  passwordHash      String
+  phone             String          @default("")
+  forwardPhone      String?
+  forwardingEnabled Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  contacts          Contact[]
+  calls             Call[]
+  textMessages      TextMessage[]
+  batchCampaigns    BatchCampaign[]
 }
 
 model Contact {

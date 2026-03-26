@@ -83,17 +83,34 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Forwarding settings
+  const [forwardingEnabled, setForwardingEnabled] = useState(false);
+  const [forwardPhone, setForwardPhone] = useState('');
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
+
   useEffect(() => {
     async function load() {
       try {
-        // Fire cron init in background (don't block on it)
         fetch('/api/cron/init').catch(() => {});
 
-        const res = await fetch('/api/stats');
-        if (!res.ok) throw new Error(`Stats request failed (${res.status})`);
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error || 'Failed to load stats');
-        setStats(json.data);
+        const [statsRes, settingsRes] = await Promise.all([
+          fetch('/api/stats'),
+          fetch('/api/agent/settings'),
+        ]);
+
+        if (!statsRes.ok) throw new Error(`Stats request failed (${statsRes.status})`);
+        const statsJson = await statsRes.json();
+        if (!statsJson.success) throw new Error(statsJson.error || 'Failed to load stats');
+        setStats(statsJson.data);
+
+        if (settingsRes.ok) {
+          const settingsJson = await settingsRes.json();
+          if (settingsJson.success && settingsJson.data) {
+            setForwardingEnabled(settingsJson.data.forwardingEnabled ?? false);
+            setForwardPhone(settingsJson.data.forwardPhone ?? '');
+          }
+        }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to load dashboard data';
         setError(message);
@@ -103,6 +120,29 @@ export default function DashboardPage() {
     }
     load();
   }, []);
+
+  async function saveForwardingSettings() {
+    setSettingsSaving(true);
+    setSettingsSaved(false);
+    try {
+      const res = await fetch('/api/agent/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forwardPhone, forwardingEnabled }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setForwardingEnabled(data.data.forwardingEnabled);
+        setForwardPhone(data.data.forwardPhone ?? '');
+        setSettingsSaved(true);
+        setTimeout(() => setSettingsSaved(false), 3000);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setSettingsSaving(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -243,7 +283,7 @@ export default function DashboardPage() {
         </section>
 
         {/* ── Quick Links ── */}
-        <section>
+        <section className="mb-8">
           <h2 className="text-lg font-semibold mb-4">Quick Links</h2>
           <div className="flex flex-wrap gap-4">
             <Link
@@ -264,6 +304,60 @@ export default function DashboardPage() {
             >
               Contacts
             </Link>
+          </div>
+        </section>
+
+        {/* ── SMS Forwarding Settings ── */}
+        <section>
+          <h2 className="text-lg font-semibold mb-4">SMS Forwarding</h2>
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 max-w-md space-y-4">
+            <p className="text-sm text-gray-400">
+              When a client texts your Vonage number, forward a copy to your personal phone.
+            </p>
+
+            {/* Toggle */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-300">Forward inbound texts</span>
+              <button
+                onClick={() => setForwardingEnabled((v) => !v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                  forwardingEnabled ? 'bg-blue-600' : 'bg-gray-700'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    forwardingEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Phone number input */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Forward to phone number</label>
+              <input
+                type="tel"
+                value={forwardPhone}
+                onChange={(e) => setForwardPhone(e.target.value)}
+                placeholder="e.g. 19199079398"
+                className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+              <p className="text-xs text-gray-500 mt-1">Include country code — no + needed (e.g. 19195551234)</p>
+            </div>
+
+            {/* Save button */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={saveForwardingSettings}
+                disabled={settingsSaving}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg text-sm font-medium text-white transition"
+              >
+                {settingsSaving ? 'Saving...' : 'Save Settings'}
+              </button>
+              {settingsSaved && (
+                <span className="text-sm text-green-400">✓ Saved</span>
+              )}
+            </div>
           </div>
         </section>
       </main>
