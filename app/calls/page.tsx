@@ -28,6 +28,7 @@ interface TextEntry {
   contactPhone?: string;
   direction?: string;
   message?: string;
+  body?: string;
   status?: string;
   date: string;
 }
