@@ -332,7 +332,13 @@ export default function CallerPage() {
               <input
                 type="checkbox"
                 checked={scheduleCall}
-                onChange={(e) => setScheduleCall(e.target.checked)}
+                onChange={(e) => {
+                  setScheduleCall(e.target.checked);
+                  if (e.target.checked && !scheduledAt) {
+                    const d = new Date(Date.now() + 5 * 60 * 1000);
+                    setScheduledAt(d.toISOString().slice(0, 16));
+                  }
+                }}
                 className="w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-600"
               />
               <span className="text-sm font-medium text-gray-300">
@@ -343,11 +349,15 @@ export default function CallerPage() {
             {scheduleCall && (
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Scheduled At
+                  Scheduled At <span className="text-gray-500 font-normal">(min 3 min from now, 10:30 AM–8:00 PM ET)</span>
                 </label>
                 <input
                   type="datetime-local"
                   value={scheduledAt}
+                  min={(() => {
+                    const d = new Date(Date.now() + 4 * 60 * 1000);
+                    return d.toISOString().slice(0, 16);
+                  })()}
                   onChange={(e) => setScheduledAt(e.target.value)}
                   className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
