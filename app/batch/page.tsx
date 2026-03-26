@@ -8,6 +8,8 @@ interface Contact {
   id: string;
   name: string;
   phone?: string;
+  nextPaymentAmount?: string | null;
+  courtDate?: string | null;
 }
 
 type CallType = "payment" | "court";
@@ -165,7 +167,7 @@ export default function BatchCallerPage() {
         )}
 
         <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
-          {/* Contact Multi-Select */}
+          {/* Contact Selection + Preview Panels */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Select Contacts
@@ -178,48 +180,104 @@ export default function BatchCallerPage() {
               className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
 
-            <div className="bg-gray-800 rounded-lg border border-gray-700">
-              {/* Select All header */}
-              <label className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-700 cursor-pointer hover:bg-gray-750">
-                <input
-                  type="checkbox"
-                  checked={allFilteredSelected}
-                  onChange={toggleSelectAll}
-                  className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-600"
-                />
-                <span className="text-sm font-medium text-gray-300">
-                  Select All
-                </span>
-              </label>
+            {/* Three scroll windows */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
 
-              {/* Scrollable list */}
-              <div className="max-h-64 overflow-y-auto">
-                {filteredContacts.length === 0 ? (
-                  <p className="px-4 py-3 text-gray-400 text-sm">
-                    No contacts found
-                  </p>
-                ) : (
-                  filteredContacts.map((contact) => (
-                    <label
-                      key={contact.id}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(contact.id)}
-                        onChange={() => toggleContact(contact.id)}
-                        className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-600"
-                      />
-                      <span className="text-sm text-white">{contact.name}</span>
-                      {contact.phone && (
-                        <span className="text-sm text-gray-400 ml-auto">
-                          {contact.phone}
-                        </span>
-                      )}
-                    </label>
-                  ))
-                )}
+              {/* Window 1: Contact checkbox list */}
+              <div className="bg-gray-800 rounded-lg border border-gray-700 flex flex-col">
+                <div className="px-4 py-2 border-b border-gray-700 bg-gray-800/80 rounded-t-lg">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allFilteredSelected}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-600"
+                    />
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      Select All ({filteredContacts.length})
+                    </span>
+                  </label>
+                </div>
+                <div className="h-64 overflow-y-auto">
+                  {filteredContacts.length === 0 ? (
+                    <p className="px-4 py-3 text-gray-400 text-sm">No contacts found</p>
+                  ) : (
+                    filteredContacts.map((contact) => (
+                      <label
+                        key={contact.id}
+                        className="flex items-center gap-3 px-4 py-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700/50 last:border-0"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(contact.id)}
+                          onChange={() => toggleContact(contact.id)}
+                          className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-600 flex-shrink-0"
+                        />
+                        <span className="text-sm text-white truncate">{contact.name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
               </div>
+
+              {/* Window 2: Payment amounts preview */}
+              <div className="bg-gray-800 rounded-lg border border-gray-700 flex flex-col">
+                <div className="px-4 py-2 border-b border-gray-700 bg-gray-800/80 rounded-t-lg">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    💳 Payment Amounts
+                  </span>
+                </div>
+                <div className="h-64 overflow-y-auto">
+                  {selectedCount === 0 ? (
+                    <p className="px-4 py-3 text-gray-500 text-xs italic">Select contacts to preview</p>
+                  ) : (
+                    contacts
+                      .filter((c) => selectedIds.has(c.id))
+                      .map((contact) => (
+                        <div
+                          key={contact.id}
+                          className="flex items-center justify-between px-4 py-2 border-b border-gray-700/50 last:border-0"
+                        >
+                          <span className="text-sm text-white truncate mr-2">{contact.name}</span>
+                          <span className={`text-sm flex-shrink-0 font-medium ${contact.nextPaymentAmount ? 'text-green-400' : 'text-gray-500 italic'}`}>
+                            {contact.nextPaymentAmount || 'not set'}
+                          </span>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+
+              {/* Window 3: Court dates preview */}
+              <div className="bg-gray-800 rounded-lg border border-gray-700 flex flex-col">
+                <div className="px-4 py-2 border-b border-gray-700 bg-gray-800/80 rounded-t-lg">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    ⚖️ Court Dates
+                  </span>
+                </div>
+                <div className="h-64 overflow-y-auto">
+                  {selectedCount === 0 ? (
+                    <p className="px-4 py-3 text-gray-500 text-xs italic">Select contacts to preview</p>
+                  ) : (
+                    contacts
+                      .filter((c) => selectedIds.has(c.id))
+                      .map((contact) => (
+                        <div
+                          key={contact.id}
+                          className="flex items-center justify-between px-4 py-2 border-b border-gray-700/50 last:border-0"
+                        >
+                          <span className="text-sm text-white truncate mr-2">{contact.name}</span>
+                          <span className={`text-sm flex-shrink-0 font-medium ${contact.courtDate ? 'text-blue-400' : 'text-gray-500 italic'}`}>
+                            {contact.courtDate
+                              ? new Date(contact.courtDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                              : 'not set'}
+                          </span>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+
             </div>
 
             {/* Selection count */}
@@ -228,9 +286,7 @@ export default function BatchCallerPage() {
                 {selectedCount} of {contacts.length} selected
               </span>
               {isOverMax && (
-                <span className="text-sm text-red-400 font-medium">
-                  (max {MAX_BATCH})
-                </span>
+                <span className="text-sm text-red-400 font-medium">(max {MAX_BATCH})</span>
               )}
             </div>
           </div>
