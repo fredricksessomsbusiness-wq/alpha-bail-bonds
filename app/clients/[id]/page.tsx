@@ -264,7 +264,7 @@ export default function ClientProfilePage() {
             contactPhone: contact?.phone ?? '',
             direction: 'outbound',
             message: data.data.body ?? data.data.message ?? textMessage,
-            createdAt: data.data.sentAt ?? new Date().toISOString(),
+            date: data.data.sentAt ?? new Date().toISOString(),
           },
           ...prev,
         ]);
