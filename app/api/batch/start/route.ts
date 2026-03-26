@@ -5,6 +5,18 @@ import { prisma } from "@/lib/prisma";
 import { sendSMS } from "@/lib/vonage";
 import { validateCallTime, getNextValidCallTime } from "@/lib/call-protection";
 
+function resolveTemplate(template: string, contact: { nextPaymentAmount?: string | null; courtDate?: Date | null }, globals: { amount?: string; deadline?: string; courtDate?: string; paymentLink?: string }): string {
+  const amount = contact.nextPaymentAmount || globals.amount || '[AMOUNT]';
+  const deadline = globals.deadline || (contact.courtDate ? new Date(contact.courtDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '') || '[DEADLINE]';
+  const courtDate = contact.courtDate ? new Date(contact.courtDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : globals.courtDate || '[DATE]';
+  const link = globals.paymentLink || '[LINK]';
+  return template
+    .replace(/\[AMOUNT\]/g, amount)
+    .replace(/\[DEADLINE\]/g, deadline)
+    .replace(/\[DATE\]/g, courtDate)
+    .replace(/\[LINK\]/g, link);
+}
+
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -79,15 +91,17 @@ export async function POST(request: Request) {
       },
     });
 
-    // Send SMS to ALL contacts immediately
+    // Send SMS to ALL contacts immediately, with per-contact substitution
+    const globals = { amount, deadline, courtDate, paymentLink };
     for (const contact of contacts) {
       try {
-        const smsResult = await sendSMS(contact.phone, messageTemplate);
+        const resolvedMessage = resolveTemplate(messageTemplate, contact, globals);
+        const smsResult = await sendSMS(contact.phone, resolvedMessage);
         await prisma.textMessage.create({
           data: {
             contactId: contact.id,
             agentId: userId,
-            body: messageTemplate,
+            body: resolvedMessage,
             direction: "outbound",
             vonageMessageId: smsResult.messageId,
             status: smsResult.success ? "sent" : "failed",

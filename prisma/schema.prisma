@@ -28,10 +28,12 @@ model Contact {
   phone           String
   defendantName   String           @default("")
   status          String           @default("active")
-  lastOutcome     String?
-  lastSentiment   String?
-  lastContactedAt DateTime?
-  createdAt       DateTime         @default(now())
+  lastOutcome       String?
+  lastSentiment     String?
+  lastContactedAt   DateTime?
+  courtDate         DateTime?
+  nextPaymentAmount String?
+  createdAt         DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   calls           Call[]
   textMessages    TextMessage[]

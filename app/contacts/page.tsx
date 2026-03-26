@@ -12,9 +12,11 @@ interface Contact {
   status: 'active' | 'paused' | 'do_not_contact';
   lastOutcome?: string;
   lastContactedAt?: string;
+  courtDate?: string;
+  nextPaymentAmount?: string;
 }
 
-const emptyForm = { name: '', phone: '', defendantName: '' };
+const emptyForm = { name: '', phone: '', defendantName: '', courtDate: '', nextPaymentAmount: '' };
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -76,6 +78,8 @@ export default function ContactsPage() {
       name: contact.name,
       phone: contact.phone,
       defendantName: contact.defendantName ?? '',
+      courtDate: contact.courtDate ? new Date(contact.courtDate).toISOString().split('T')[0] : '',
+      nextPaymentAmount: contact.nextPaymentAmount ?? '',
     });
     setEditingId(contact.id);
     setShowForm(true);
@@ -201,6 +205,25 @@ export default function ContactsPage() {
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Next Payment Amount</label>
+                  <input
+                    type="text"
+                    value={form.nextPaymentAmount}
+                    onChange={(e) => setForm({ ...form, nextPaymentAmount: e.target.value })}
+                    placeholder="$500.00"
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Next Court Date</label>
+                  <input
+                    type="date"
+                    value={form.courtDate}
+                    onChange={(e) => setForm({ ...form, courtDate: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
               <div className="flex gap-3 mt-4">
                 <button
@@ -246,6 +269,8 @@ export default function ContactsPage() {
                       <th className="px-6 py-3">Phone</th>
                       <th className="px-6 py-3">Defendant</th>
                       <th className="px-6 py-3">Status</th>
+                      <th className="px-6 py-3">Next Payment</th>
+                      <th className="px-6 py-3">Court Date</th>
                       <th className="px-6 py-3">Last Outcome</th>
                       <th className="px-6 py-3">Last Contacted</th>
                       <th className="px-6 py-3">Actions</th>
@@ -254,7 +279,7 @@ export default function ContactsPage() {
                   <tbody className="divide-y divide-gray-800">
                     {filtered.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                        <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                           {search ? 'No contacts match your search.' : 'No contacts found.'}
                         </td>
                       </tr>
@@ -274,6 +299,12 @@ export default function ContactsPage() {
                             {contact.defendantName || '-'}
                           </td>
                           <td className="px-6 py-4">{statusBadge(contact.status)}</td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {contact.nextPaymentAmount || '-'}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {contact.courtDate ? formatDate(contact.courtDate) : '-'}
+                          </td>
                           <td className="px-6 py-4 text-gray-300">
                             {contact.lastOutcome || '-'}
                           </td>

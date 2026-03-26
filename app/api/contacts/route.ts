@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, phone, defendantName } = await request.json();
+    const { name, phone, defendantName, courtDate, nextPaymentAmount } = await request.json();
 
     if (!name || !phone) {
       return NextResponse.json(
@@ -56,6 +56,8 @@ export async function POST(request: Request) {
         phone: normalizePhone(phone),
         defendantName: defendantName || "",
         agentId: userId,
+        ...(courtDate ? { courtDate: new Date(courtDate) } : {}),
+        ...(nextPaymentAmount !== undefined && { nextPaymentAmount }),
       },
     });
 

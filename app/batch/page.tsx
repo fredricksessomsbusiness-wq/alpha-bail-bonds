@@ -123,17 +123,7 @@ export default function BatchCallerPage() {
     setError("");
 
     try {
-      // Resolve message with placeholders filled in
-      let resolvedMessage = messageTemplate;
-      if (callType === "payment") {
-        resolvedMessage = resolvedMessage
-          .replace(/\[AMOUNT\]/g, amount || "[AMOUNT]")
-          .replace(/\[DEADLINE\]/g, deadline || "[DEADLINE]")
-          .replace(/\[LINK\]/g, paymentLink || "[LINK]");
-      } else {
-        resolvedMessage = resolvedMessage.replace(/\[DATE\]/g, courtDate || "[DATE]");
-      }
-
+      // Send original template; per-contact substitution happens in the API
       const res = await fetch("/api/batch/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -141,7 +131,7 @@ export default function BatchCallerPage() {
           contactIds: Array.from(selectedIds),
           callType,
           assistantType: selectedAssistant,
-          messageTemplate: resolvedMessage,
+          messageTemplate,
           paymentLink: callType === "payment" ? paymentLink : undefined,
           amount: callType === "payment" ? amount : undefined,
           deadline: callType === "payment" ? deadline : undefined,

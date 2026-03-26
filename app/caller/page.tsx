@@ -9,6 +9,12 @@ interface Contact {
   phone?: string;
 }
 
+interface ContactDetail {
+  id: string;
+  nextPaymentAmount: string | null;
+  courtDate: string | null;
+}
+
 type CallType = "payment" | "court";
 
 const PAYMENT_TEMPLATE =
@@ -22,6 +28,8 @@ export default function CallerPage() {
   const [contactSearch, setContactSearch] = useState("");
   const [contactId, setContactId] = useState("");
   const [selectedContactName, setSelectedContactName] = useState("");
+  const [selectedContactData, setSelectedContactData] = useState<ContactDetail | null>(null);
+  const [preFilled, setPreFilled] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -70,6 +78,10 @@ export default function CallerPage() {
   // Update message template when call type changes
   useEffect(() => {
     setMessageTemplate(callType === "payment" ? PAYMENT_TEMPLATE : COURT_TEMPLATE);
+    if (selectedContactData) {
+      applyContactPrefill(selectedContactData, callType);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callType]);
 
   // Close dropdown on outside click
@@ -95,11 +107,39 @@ export default function CallerPage() {
     c.name.toLowerCase().includes(contactSearch.toLowerCase())
   );
 
-  function selectContact(contact: Contact) {
+  async function selectContact(contact: Contact) {
     setContactId(contact.id);
     setSelectedContactName(contact.name);
     setContactSearch("");
     setDropdownOpen(false);
+    setPreFilled(false);
+
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          const detail: ContactDetail = json.data.contact;
+          setSelectedContactData(detail);
+          applyContactPrefill(detail, callType);
+        }
+      }
+    } catch {
+      // silently fail
+    }
+  }
+
+  function applyContactPrefill(detail: ContactDetail, type: string) {
+    let didPrefill = false;
+    if (type === 'payment' && detail.nextPaymentAmount) {
+      setAmount(detail.nextPaymentAmount);
+      didPrefill = true;
+    }
+    if (type === 'court' && detail.courtDate) {
+      setCourtDate(new Date(detail.courtDate).toISOString().split('T')[0]);
+      didPrefill = true;
+    }
+    setPreFilled(didPrefill);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -238,6 +278,13 @@ export default function CallerPage() {
               )}
             </div>
           </div>
+
+          {/* Pre-fill note */}
+          {preFilled && (
+            <p className="text-xs text-blue-400 bg-blue-900/20 border border-blue-800 rounded-lg px-3 py-2">
+              Pre-filled from contact record — edit to override
+            </p>
+          )}
 
           {/* Call Type Radio Buttons */}
           <div>

@@ -4,6 +4,59 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/phone";
 
+export async function GET(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    const userId = (session?.user as { id?: string })?.id;
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { id } = params;
+
+    const contact = await prisma.contact.findUnique({ where: { id } });
+    if (!contact) {
+      return NextResponse.json(
+        { success: false, error: "Contact not found" },
+        { status: 404 }
+      );
+    }
+    if (contact.agentId !== userId) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    const calls = await prisma.call.findMany({
+      where: { contactId: id },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const textMessages = await prisma.textMessage.findMany({
+      where: { contactId: id },
+      orderBy: { sentAt: "desc" },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: { contact, calls, textMessages },
+    });
+  } catch (error) {
+    console.error("GET /api/contacts/[id] error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch contact" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
@@ -34,7 +87,7 @@ export async function PUT(
       );
     }
 
-    const { name, phone, defendantName, status } = await request.json();
+    const { name, phone, defendantName, status, courtDate, nextPaymentAmount } = await request.json();
 
     const contact = await prisma.contact.update({
       where: { id },
@@ -43,6 +96,8 @@ export async function PUT(
         ...(phone !== undefined && { phone: normalizePhone(phone) }),
         ...(defendantName !== undefined && { defendantName }),
         ...(status !== undefined && { status }),
+        ...(courtDate !== undefined && { courtDate: courtDate ? new Date(courtDate) : null }),
+        ...(nextPaymentAmount !== undefined && { nextPaymentAmount }),
       },
     });
 
