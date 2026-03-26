@@ -149,7 +149,7 @@ export default function BatchCallerPage() {
   return (
     <div className="min-h-screen bg-gray-950">
       <Sidebar />
-      <main className="lg:ml-64 p-6 min-h-screen">
+      <main className="lg:ml-64 p-6 pt-16 lg:pt-6 min-h-screen">
         <h1 className="text-2xl font-bold text-white mb-8">Batch Caller</h1>
 
         {error && (

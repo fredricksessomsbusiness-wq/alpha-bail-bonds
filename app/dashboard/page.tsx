@@ -108,7 +108,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-950 text-white">
       <Sidebar />
 
-      <main className="lg:ml-64 p-6 min-h-screen">
+      <main className="lg:ml-64 p-6 pt-16 lg:pt-6 min-h-screen">
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
 
         {/* Error banner */}

@@ -137,7 +137,7 @@ export default function ContactsPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <Sidebar />
-      <main className="lg:ml-64 p-6 min-h-screen">
+      <main className="lg:ml-64 p-6 pt-16 lg:pt-6 min-h-screen">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
