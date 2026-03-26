@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
@@ -168,11 +168,11 @@ export default function ClientProfilePage() {
   const [editPaymentAmount, setEditPaymentAmount] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Quick-send text state
-  const [showTextForm, setShowTextForm] = useState(false);
-  const [textMessage, setTextMessage] = useState('');
+  // SMS conversation state
+  const [replyText, setReplyText] = useState('');
   const [sendingText, setSendingText] = useState(false);
   const [textFeedback, setTextFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
 
   // Expanded call transcripts
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -214,6 +214,29 @@ export default function ClientProfilePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Poll for new messages every 20 seconds
+  useEffect(() => {
+    if (!id) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/contacts/${id}`);
+        const json = await res.json();
+        if (json.success) {
+          setTextMessages(json.data.textMessages);
+        }
+      } catch {
+        // silently ignore poll errors
+      }
+    }, 20000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Scroll to bottom of chat when messages change
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [textMessages]);
+
   async function handleSaveEdit() {
     if (!contact) return;
     setSaving(true);
@@ -243,35 +266,44 @@ export default function ClientProfilePage() {
   }
 
   async function handleSendText() {
-    if (!textMessage.trim()) return;
+    if (!replyText.trim()) return;
     setSendingText(true);
     setTextFeedback(null);
+    const snapshot = replyText;
+    setReplyText('');
     try {
       const res = await fetch('/api/sms/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contactId: id, message: textMessage }),
+        body: JSON.stringify({ contactId: id, message: snapshot }),
       });
       const data = await res.json();
       if (data.success) {
-        setTextFeedback({ type: 'success', message: 'Text sent successfully!' });
-        setTextMessage('');
         const newMsg: TextMessage = {
-          id: data.data.id,
+          id: data.data.id ?? String(Date.now()),
           contactId: id,
           direction: 'outbound',
-          body: data.data.body ?? data.data.message ?? textMessage,
+          body: snapshot,
           sentAt: data.data.sentAt ?? new Date().toISOString(),
           status: 'sent',
         };
-        setTextMessages((prev) => [newMsg, ...prev]);
+        setTextMessages((prev) => [...prev, newMsg]);
       } else {
         setTextFeedback({ type: 'error', message: data.error || 'Failed to send text' });
+        setReplyText(snapshot);
       }
     } catch {
       setTextFeedback({ type: 'error', message: 'Network error sending text' });
+      setReplyText(snapshot);
     } finally {
       setSendingText(false);
+    }
+  }
+
+  function handleReplyKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendText();
     }
   }
 
@@ -490,81 +522,92 @@ export default function ClientProfilePage() {
             {/* 3. Action buttons row */}
             <div className="flex flex-wrap gap-3">
               <Link
-                href={`/caller?contactId=${id}`}
+                href={`/single-call?contactId=${id}`}
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition inline-flex items-center gap-2"
               >
                 <PhoneIcon />
                 Call Now
               </Link>
-              <button
-                onClick={() => {
-                  setShowTextForm(!showTextForm);
-                  setTextFeedback(null);
-                }}
-                className="px-5 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition inline-flex items-center gap-2"
-              >
-                <ChatIcon />
-                Send Text
-              </button>
             </div>
 
-            {/* 4. Quick-send text form */}
-            {showTextForm && (
-              <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 space-y-3">
-                <label className="block text-sm text-gray-300 font-medium">Quick Send Text</label>
-                <textarea
-                  value={textMessage}
-                  onChange={(e) => setTextMessage(e.target.value)}
-                  placeholder="Type your message..."
-                  rows={3}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
-                />
-                {textFeedback && (
-                  <p
-                    className={`text-sm ${textFeedback.type === 'success' ? 'text-green-400' : 'text-red-400'}`}
-                  >
-                    {textFeedback.message}
-                  </p>
-                )}
-                <button
-                  onClick={handleSendText}
-                  disabled={sendingText || !textMessage.trim()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition disabled:opacity-50"
-                >
-                  {sendingText ? 'Sending...' : 'Send'}
-                </button>
-              </div>
-            )}
-
-            {/* 5. Messages and Calls panels */}
+            {/* 4. Messages and Calls panels */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Messages panel */}
-              <div>
-                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              {/* SMS Conversation panel */}
+              <div className="flex flex-col bg-gray-900 rounded-xl border border-gray-800 overflow-hidden" style={{ height: '520px' }}>
+                {/* Header */}
+                <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-2 flex-shrink-0">
                   <ChatIcon />
-                  Messages
-                  <span className="text-sm font-normal text-gray-400">({totalTexts})</span>
-                </h2>
-                {textMessages.length === 0 ? (
-                  <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-center text-gray-500 text-sm">
-                    No messages yet.
+                  <span className="text-sm font-semibold text-white">Messages</span>
+                  <span className="text-xs text-gray-400">({totalTexts})</span>
+                  <span className="ml-auto text-xs text-gray-500">Auto-refreshes every 20s</span>
+                </div>
+
+                {/* Chat bubbles */}
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+                  {textMessages.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                      No messages yet. Send one below.
+                    </div>
+                  ) : (
+                    [...textMessages]
+                      .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime())
+                      .map((msg) => {
+                        const isOutbound = msg.direction === 'outbound';
+                        return (
+                          <div key={msg.id} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[80%] ${isOutbound ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
+                              <div
+                                className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
+                                  isOutbound
+                                    ? 'bg-blue-600 text-white rounded-br-sm'
+                                    : 'bg-gray-700 text-gray-100 rounded-bl-sm'
+                                }`}
+                              >
+                                {msg.body}
+                              </div>
+                              <span className="text-xs text-gray-500 px-1">{formatDate(msg.sentAt)}</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                  )}
+                  <div ref={chatBottomRef} />
+                </div>
+
+                {/* Reply box */}
+                <div className="border-t border-gray-800 p-3 flex-shrink-0">
+                  {textFeedback && (
+                    <p className={`text-xs mb-2 ${textFeedback.type === 'error' ? 'text-red-400' : 'text-green-400'}`}>
+                      {textFeedback.message}
+                    </p>
+                  )}
+                  <div className="flex gap-2 items-end">
+                    <textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      onKeyDown={handleReplyKeyDown}
+                      placeholder={`Reply to ${contact.name}… (Enter to send)`}
+                      rows={2}
+                      className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
+                    />
+                    <button
+                      onClick={handleSendText}
+                      disabled={sendingText || !replyText.trim()}
+                      className="flex-shrink-0 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-sm font-medium text-white transition h-[60px] flex items-center justify-center"
+                    >
+                      {sendingText ? (
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    {textMessages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className="bg-gray-900 rounded-xl p-4 border border-gray-800"
-                      >
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <span className="text-xs text-gray-400">{formatDate(msg.sentAt)}</span>
-                          <DirectionBadge direction={msg.direction} />
-                        </div>
-                        <p className="text-sm text-gray-300">{msg.body}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                </div>
               </div>
 
               {/* Calls panel */}
